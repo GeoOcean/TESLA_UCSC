@@ -72,47 +72,96 @@ def Empirical_ICDF(x, p):
     )
     return fint(p)
 
+
+
 from scipy.stats import genextreme
 import numpy as np
 
+def fit_gev(x):
+    '''
+    Ajusta una distribución GEV a los datos y maneja posibles errores.
+
+    Parameters:
+    - x: Datos utilizados para ajustar la distribución GEV.
+
+    Returns:
+    - params: Tupla (shape, loc, scale) de los parámetros ajustados, o None si falla el ajuste.
+    '''
+    try:
+        # Verificar que los datos sean válidos
+        x = np.array(x)
+        if len(x) == 0:
+            raise ValueError("Los datos de entrada 'x' no deben estar vacíos.")
+        if not np.isfinite(x).all():
+            raise ValueError("Los datos de entrada 'x' contienen NaN o Inf.")
+        if np.ptp(x) < 1e-6:  # ptp: rango máximo-mínimo
+            raise ValueError("Los datos de entrada 'x' tienen variabilidad insuficiente.")
+        
+        # Ajustar parámetros GEV
+        params = genextreme.fit(x)
+        return params
+    except Exception as e:
+        print(f"Advertencia: Falló el ajuste de la distribución GEV ({e}).")
+        return None
+
+
 def GEV_CDF(x):
     '''
-    Returns the cumulative distribution function (CDF) values of a GEV fit for the input data `x`.
-    
+    Devuelve el valor de la función de distribución acumulativa (CDF) de una distribución GEV ajustada
+    a los datos `x`, evaluado en el punto máximo de los datos (`max(x)`).
+
     Parameters:
-    - x: Data used to fit the GEV distribution.
-    
+    - x: Datos utilizados para ajustar la distribución GEV.
+
     Returns:
-    - cdf: CDF values at each point in `x`.
+    - cdf: Valor de la CDF en el punto `max(x)`, o None si falla el ajuste.
     '''
-    # Fit GEV parameters (shape, loc, scale) using the data
-    shape, loc, scale = genextreme.fit(x)
+    # Ajustar la distribución GEV
+    params = fit_gev(x)
+    if params is None:
+        return None  # Devolver None si falla el ajuste
+
+    # Obtener el valor máximo de x (para evaluar la CDF en este punto)
+    value = np.max(x)
     
-    # Calculate CDF for the provided x values
-    cdf = genextreme.cdf(x, shape, loc=loc, scale=scale)
-    return cdf
+    # Calcular la CDF para el valor proporcionado
+    shape, loc, scale = params
+    try:
+        cdf = genextreme.cdf(value, shape, loc=loc, scale=scale)
+        return cdf
+    except Exception as e:
+        print(f"Advertencia: Falló el cálculo de la CDF ({e}).")
+        return None
+
 
 def GEV_ICDF(x, p):
     '''
-    Returns the inverse cumulative distribution function (ICDF) values (quantiles) at probabilities `p`
-    for a GEV fit based on the data `x`.
+    Devuelve el valor de la función de distribución acumulativa inversa (ICDF) de una distribución GEV ajustada
+    a los datos `x`, evaluado en una probabilidad `p`.
 
     Parameters:
-    - x: Data used to fit the GEV distribution.
-    - p: Probabilities at which to evaluate the ICDF (between 0 and 1).
+    - x: Datos utilizados para ajustar la distribución GEV.
+    - p: Probabilidad en el rango [0, 1] para evaluar la ICDF.
 
     Returns:
-    - icdf: Values of the variable corresponding to probabilities `p`.
+    - icdf: Valor correspondiente a la probabilidad `p`, o None si falla el ajuste.
     '''
-    # Fit GEV parameters (shape, loc, scale) using the data
-    shape, loc, scale = genextreme.fit(x)
-    
-    # Ensure probabilities are within valid range [0, 1]
+    # Ajustar la distribución GEV
+    params = fit_gev(x)
+    if params is None:
+        return None  # Devolver None si falla el ajuste
+
+    # Asegurarse de que la probabilidad esté dentro del rango [0, 1]
     p = np.clip(p, 0, 1)
-    
-    # Calculate ICDF for the provided probabilities
-    icdf = genextreme.ppf(p, shape, loc=loc, scale=scale)
-    return icdf
+
+    # Calcular la ICDF para la probabilidad proporcionada
+    shape, loc, scale = params
+    try:
+        icdf = genextreme.ppf(p, shape, loc=loc, scale=scale)
+        return icdf
+    except Exception as e:
+        print(f"Error calculating ICDF ({e}).")
+        return None
 
 
 
@@ -215,7 +264,7 @@ def Copula_Hs_Tp_Dir_ss(main_path,ds,num_clusters,kernels,names,num_sim_rnd):
 
         # Limitador fisico
         copula = CopulaSimulation(variables, kernels, 3*num_sim_rnd)
-        var_max = 2.5*np.nanmax(variables, axis=0)
+        var_max = 6*np.nanmax(variables, axis=0)
         pos_copula = np.where((copula[:,0]<var_max[0]) & (copula[:,0]>=0) & (copula[:,1]<var_max[1]) & (copula[:,2]<var_max[2]) & (copula[:,3]<var_max[3]))[0]
 
 
@@ -267,5 +316,3 @@ def Copula_Hs_Tp_Dir_ss(main_path,ds,num_clusters,kernels,names,num_sim_rnd):
         
         #Save
         Copula_params.to_netcdf(path=os.path.join(main_path,'Copula_Parameters_'+ str(aa) +'.nc'),mode='w')
-
-
