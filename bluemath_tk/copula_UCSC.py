@@ -72,6 +72,49 @@ def Empirical_ICDF(x, p):
     )
     return fint(p)
 
+from scipy.stats import genextreme
+import numpy as np
+
+def GEV_CDF(x):
+    '''
+    Returns the cumulative distribution function (CDF) values of a GEV fit for the input data `x`.
+    
+    Parameters:
+    - x: Data used to fit the GEV distribution.
+    
+    Returns:
+    - cdf: CDF values at each point in `x`.
+    '''
+    # Fit GEV parameters (shape, loc, scale) using the data
+    shape, loc, scale = genextreme.fit(x)
+    
+    # Calculate CDF for the provided x values
+    cdf = genextreme.cdf(x, shape, loc=loc, scale=scale)
+    return cdf
+
+def GEV_ICDF(x, p):
+    '''
+    Returns the inverse cumulative distribution function (ICDF) values (quantiles) at probabilities `p`
+    for a GEV fit based on the data `x`.
+
+    Parameters:
+    - x: Data used to fit the GEV distribution.
+    - p: Probabilities at which to evaluate the ICDF (between 0 and 1).
+
+    Returns:
+    - icdf: Values of the variable corresponding to probabilities `p`.
+    '''
+    # Fit GEV parameters (shape, loc, scale) using the data
+    shape, loc, scale = genextreme.fit(x)
+    
+    # Ensure probabilities are within valid range [0, 1]
+    p = np.clip(p, 0, 1)
+    
+    # Calculate ICDF for the provided probabilities
+    icdf = genextreme.ppf(p, shape, loc=loc, scale=scale)
+    return icdf
+
+
 
 
 
@@ -116,7 +159,8 @@ def CopulaSimulation(U_data, kernels, num_sim):
 
     # kernel CDF dictionary (input defined for each variable)
     d_kf = {
-        'ECDF' : (Empirical_CDF, Empirical_ICDF)
+        'ECDF' : (Empirical_CDF, Empirical_ICDF),
+        'GEV': (GEV_CDF, GEV_ICDF),
     }
 
     # check kernel input
